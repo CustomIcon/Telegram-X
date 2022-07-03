@@ -959,7 +959,7 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
     boolean isSmallStreamingUI = isStreamingUI && !isDoubleLine;
     boolean needTopOffset = source != null && source.useFullWidth() && source.hasHeader() && source.isChannel() && isVideo() && (source instanceof TGMessageMedia && ((TGMessageMedia) source).isVideoFirstInMosaic(video.video.id)) && source.replyData == null;
 
-    // Log.d("%s %s => [%s, %s, trim: %s] <%s>", isStreamingUI, isDoubleLine, duration, durationShort, durationTrimmed, dlFactor);
+    Log.d("%s %s => [%s, %s, trim: %s] <%s>", isStreamingUI, isDoubleLine, duration, durationShort, durationTrimmed, dlFactor);
 
     RectF actionButtonRect = Paints.getRectF();
     boolean showDuration = !StringUtils.isEmpty(durationTrimmed) && selectionFactor < 1f;
@@ -987,55 +987,54 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
 
       //c.drawRect(durationRect, Paints.getPorterDuffPaint(Color.GREEN));
       //c.drawRect(actionButtonRect, Paints.getPorterDuffPaint(Color.RED));
-
-      //if (durationRect.intersects(actionButtonRect.left, actionButtonRect.top, actionButtonRect.right, actionButtonRect.bottom)) {
-      //  getFileProgress().setVideoStreamingOptions(needTopOffset, false, FileProgressComponent.STREAMING_UI_MODE_EXTRA_SMALL, durationRect, downloadedAnimator);
-      //} else {
+      
+      if (durationRect.intersects(actionButtonRect.left, actionButtonRect.top, actionButtonRect.right, actionButtonRect.bottom)) {
+        getFileProgress().setVideoStreamingOptions(needTopOffset, true, FileProgressComponent.STREAMING_UI_MODE_SMALL, durationRect, downloadedAnimator);
+      } else {
         getFileProgress().setVideoStreamingOptions(needTopOffset, false, isSmallStreamingUI ? FileProgressComponent.STREAMING_UI_MODE_SMALL : FileProgressComponent.STREAMING_UI_MODE_LARGE, durationRect, downloadedAnimator);
-      //}
+        c.drawRoundRect(durationRect, pDurationCorners, pDurationCorners, Paints.fillingPaint(ColorUtils.alphaColor(alpha * (1f - selectionFactor), 0x4c000000)));
 
-      c.drawRoundRect(durationRect, pDurationCorners, pDurationCorners, Paints.fillingPaint(ColorUtils.alphaColor(alpha * (1f - selectionFactor), 0x4c000000)));
+        // This is set to fix text visible outside the rounded rect during the animation
+        durationRect.right -= pDurationCorners / 2f;
 
-      // This is set to fix text visible outside the rounded rect during the animation
-      durationRect.right -= pDurationCorners / 2f;
+        Paint paint;
 
-      Paint paint;
-
-      if (isDoubleLine) {
-        paint = Paints.getRegularTextPaint(13f, Color.WHITE);
-      } else {
-        paint = Paints.whiteMediumPaint(13f, false, false);
-      }
-
-      paint.setAlpha((int) (255f * alpha * (1f - selectionFactor)));
-
-      c.save();
-      c.clipRect(durationRect);
-      if (isDoubleLine) {
-        int textBaseline = pDurationLeft + (int) MathUtils.fromTo(0, (durationDx = doubleFpRadius + Screen.dp(6f)), dlFactor);
-        int textYBaseline = (int) MathUtils.fromTo(pDurationTop + durationOffset(), pDurationTop + (((pDurationTop + doubleFpRadius + Screen.dp(8f)) - pDurationTop) / 2f), dlFactor);
-        Paint mediumPaint = Paints.whiteMediumPaint(13f, false, false);
-        mediumPaint.setAlpha(paint.getAlpha());
-        paint.setAlpha((int) (paint.getAlpha() * dlFactor));
-        c.drawText(durationShort, textBaseline, textYBaseline - Screen.dp(4f), mediumPaint);
-        c.drawText(duration, textBaseline, textYBaseline + Screen.dp(13f), paint);
-      } else {
-        float textX = pDurationLeft + (isStreamingUI ? Screen.dp(20f) * dlFactor : 0);
-        float textY = pDurationTop - Screen.dp(4f) + durationOffset();
-        durationDx = isStreamingUI ? (Screen.dp(20f)) : 0;
-        if (!fileProgress.isUploading() && durationShort != null) {
-          int paintAlpha = paint.getAlpha();
-          paint.setAlpha((int) (paintAlpha * dlFactor));
-          c.drawText(duration != null ? duration : durationTrimmed, textX, textY, paint);
-          paint.setAlpha((int) (paintAlpha * downloadedAnimator.getFloatValue()));
-          c.drawText(durationShort, textX, textY, paint);
-        } else if (durationTrimmed != null) {
-          c.drawText(durationTrimmed, textX, textY, paint);
+        if (isDoubleLine) {
+          paint = Paints.getRegularTextPaint(13f, Color.WHITE);
+        } else {
+          paint = Paints.whiteMediumPaint(13f, false, false);
         }
-      }
 
-      c.restore();
-      paint.setAlpha(255);
+        paint.setAlpha((int) (255f * alpha * (1f - selectionFactor)));
+
+        c.save();
+        c.clipRect(durationRect);
+        if (isDoubleLine) {
+          int textBaseline = pDurationLeft + (int) MathUtils.fromTo(0, (durationDx = doubleFpRadius + Screen.dp(6f)), dlFactor);
+          int textYBaseline = (int) MathUtils.fromTo(pDurationTop + durationOffset(), pDurationTop + (((pDurationTop + doubleFpRadius + Screen.dp(8f)) - pDurationTop) / 2f), dlFactor);
+          Paint mediumPaint = Paints.whiteMediumPaint(13f, false, false);
+          mediumPaint.setAlpha(paint.getAlpha());
+          paint.setAlpha((int) (paint.getAlpha() * dlFactor));
+          c.drawText(durationShort, textBaseline, textYBaseline - Screen.dp(4f), mediumPaint);
+          c.drawText(duration, textBaseline, textYBaseline + Screen.dp(13f), paint);
+        } else {
+          float textX = pDurationLeft + (isStreamingUI ? Screen.dp(20f) * dlFactor : 0);
+          float textY = pDurationTop - Screen.dp(4f) + durationOffset();
+          durationDx = isStreamingUI ? (Screen.dp(20f)) : 0;
+          if (!fileProgress.isUploading() && durationShort != null) {
+            int paintAlpha = paint.getAlpha();
+            paint.setAlpha((int) (paintAlpha * dlFactor));
+            c.drawText(duration != null ? duration : durationTrimmed, textX, textY, paint);
+            paint.setAlpha((int) (paintAlpha * downloadedAnimator.getFloatValue()));
+            c.drawText(durationShort, textX, textY, paint);
+          } else if (durationTrimmed != null) {
+            c.drawText(durationTrimmed, textX, textY, paint);
+          }
+        }
+
+        c.restore();
+        paint.setAlpha(255);
+      }
     } else if (isVideo() && Config.VIDEO_CLOUD_PLAYBACK_AVAILABLE) {
       getFileProgress().setVideoStreamingOptions(needTopOffset, true, isSmallStreamingUI ? FileProgressComponent.STREAMING_UI_MODE_SMALL : FileProgressComponent.STREAMING_UI_MODE_LARGE, durationRect, downloadedAnimator);
     }
