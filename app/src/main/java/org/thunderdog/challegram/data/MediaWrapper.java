@@ -959,7 +959,7 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
     boolean isSmallStreamingUI = isStreamingUI && !isDoubleLine;
     boolean needTopOffset = source != null && source.useFullWidth() && source.hasHeader() && source.isChannel() && isVideo() && (source instanceof TGMessageMedia && ((TGMessageMedia) source).isVideoFirstInMosaic(video.video.id)) && source.replyData == null;
 
-    Log.d("%s %s => [%s, %s, trim: %s] <%s>", isStreamingUI, isDoubleLine, duration, durationShort, durationTrimmed, dlFactor);
+    // Log.d("%s %s => [%s, %s, trim: %s] <%s>", isStreamingUI, isDoubleLine, duration, durationShort, durationTrimmed, dlFactor);
 
     RectF actionButtonRect = Paints.getRectF();
     boolean showDuration = !StringUtils.isEmpty(durationTrimmed) && selectionFactor < 1f;
@@ -987,7 +987,7 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
 
       //c.drawRect(durationRect, Paints.getPorterDuffPaint(Color.GREEN));
       //c.drawRect(actionButtonRect, Paints.getPorterDuffPaint(Color.RED));
-      
+
       if (durationRect.intersects(actionButtonRect.left, actionButtonRect.top, actionButtonRect.right, actionButtonRect.bottom)) {
         getFileProgress().setVideoStreamingOptions(needTopOffset, true, FileProgressComponent.STREAMING_UI_MODE_SMALL, durationRect, downloadedAnimator);
       } else {
