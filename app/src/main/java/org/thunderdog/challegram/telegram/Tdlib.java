@@ -519,7 +519,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
     this.isLoggingOut = account.isLoggingOut();
 
     this.parameters = new TdApi.TdlibParameters(
-      false, null, null, // updateParameters
+      true, null, null, // updateParameters
       true,
       true,
       true,
@@ -528,7 +528,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
       BuildConfig.TELEGRAM_API_HASH,
       null, null, null, // updateParameters
       BuildConfig.VERSION_NAME,
-      false,
+      true,
       false
     );
 

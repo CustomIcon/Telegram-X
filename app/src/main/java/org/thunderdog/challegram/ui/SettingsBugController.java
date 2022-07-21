@@ -618,28 +618,17 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_tdlibDatabaseStats, 0, "TDLib database statistics", false));
           items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
           items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_databaseStats, 0, "Other internal statistics", false));
-
-          if (testerLevel >= Tdlib.TESTER_LEVEL_ADMIN) {
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_stressTest, 0, "Stress test TDLib restarts", false));
+          if (items.size() > initialSize)
             items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-            items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_stressTest, 0, "Stress test TDLib restarts", false));
-          }
-          if (testerLevel >= Tdlib.TESTER_LEVEL_ADMIN || Settings.instance().forceTdlibRestart()) {
-            if (items.size() > initialSize)
-              items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-            items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_forceTdlibRestarts, 0, "Force TDLib restarts", Settings.instance().forceTdlibRestart()));
-          }
-
-          if (testerLevel >= Tdlib.TESTER_LEVEL_DEVELOPER) {
-            if (tdlib.isAuthorized()) {
-              items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-              items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_sendAllChangeLogs, 0, "Send all change logs", false));
-            }
-          }
-
-          if (testerLevel >= Tdlib.TESTER_LEVEL_CREATOR) {
+          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_forceTdlibRestarts, 0, "Force TDLib restarts", Settings.instance().forceTdlibRestart()));
+          if (tdlib.isAuthorized()) {
             items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-            items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_copyLanguageCodes, 0, "Copy language codes list", false));
+            items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_sendAllChangeLogs, 0, "Send all change logs", false));
           }
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_copyLanguageCodes, 0, "Copy language codes list", false));
 
           TdApi.User user = tdlib.myUser();
           if (user != null && user.profilePhoto != null) {
@@ -650,13 +639,9 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
 
         items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
         items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_dropSavedScrollPositions, 0, "Drop saved scroll positions", false));
-
-        if (testerLevel >= Tdlib.TESTER_LEVEL_CREATOR || Settings.instance().dontReadMessages()) {
-          if (items.size() > initialSize)
-            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_dontReadMessages, 0, "Don't read messages", false));
-        }
-
+        if (items.size() > initialSize)
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_dontReadMessages, 0, "Don't read messages", true));
         if (items.size() > initialSize)
           items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
         items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_resetTutorials, 0, "Reset tutorials", false));
@@ -672,43 +657,28 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
             items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
           items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_dropHidden, 0, "Drop hidden notification identifiers", false));
         }
-
-        if (testerLevel >= Tdlib.TESTER_LEVEL_READER || Settings.instance().needHidePhoneNumber()) {
-          if (items.size() > initialSize)
-            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_replacePhoneNumber, 0, "Hide phone number in drawer", Settings.instance().needHidePhoneNumber()));
-        }
-        if (testerLevel >= Tdlib.TESTER_LEVEL_READER || Settings.instance().forceTcpInCalls()) {
-          if (items.size() > initialSize)
-            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_forceTcpInCalls, 0, "Force TCP in calls", Settings.instance().forceTcpInCalls()));
-        }
-        if (testerLevel >= Tdlib.TESTER_LEVEL_ADMIN || Settings.instance().forceDisableNetwork()) {
-          if (items.size() > initialSize)
-            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_disableNetwork, 0, "Force disable network", Settings.instance().forceDisableNetwork()));
-        }
+        if (items.size() > initialSize)
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_replacePhoneNumber, 0, "Hide phone number in drawer", Settings.instance().needHidePhoneNumber()));
+        if (items.size() > initialSize)
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_forceTcpInCalls, 0, "Force TCP in calls", Settings.instance().forceTcpInCalls()));
+        if (items.size() > initialSize)
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_disableNetwork, 0, "Force disable network", Settings.instance().forceDisableNetwork()));
         if (Config.QR_AVAILABLE) {
-          if (testerLevel >= Tdlib.TESTER_LEVEL_ADMIN || Settings.instance().needDisableQrProcessing()) {
-            if (items.size() > initialSize)
-              items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-            items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_disableQrProcess, 0, "Disable QR processing", Settings.instance().needDisableQrProcessing()));
-          }
-          if (testerLevel >= Tdlib.TESTER_LEVEL_ADMIN || Settings.instance().needForceZxingQrProcessing()) {
-            if (items.size() > initialSize)
-              items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-            items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_forceQrZxing, 0, "Force ZXing in QR scanner", Settings.instance().needForceZxingQrProcessing()));
-          }
-          if (testerLevel >= Tdlib.TESTER_LEVEL_ADMIN || Settings.instance().needShowQrRegions()) {
-            if (items.size() > initialSize)
-              items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-            items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_debugQrRegions, 0, "Show QR scanner UI regions", Settings.instance().needForceZxingQrProcessing()));
-          }
-          if (testerLevel >= Tdlib.TESTER_LEVEL_TESTER) {
-            if (items.size() > initialSize)
-              items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-            items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_qrTest, 0, "Test QR scanner", false));
-          }
+          if (items.size() > initialSize)
+            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_disableQrProcess, 0, "Disable QR processing", Settings.instance().needDisableQrProcessing()));
+          if (items.size() > initialSize)
+            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_forceQrZxing, 0, "Force ZXing in QR scanner", Settings.instance().needForceZxingQrProcessing()));
+          if (items.size() > initialSize)
+            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_debugQrRegions, 0, "Show QR scanner UI regions", Settings.instance().needForceZxingQrProcessing()));
+          if (items.size() > initialSize)
+            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_qrTest, 0, "Test QR scanner", false));
         }
 
         /*if (Config.RTL_BETA) {
@@ -722,28 +692,26 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         items.add(new ListItem(ListItem.TYPE_HEADER, 0, 0, "Tests (crash when failed)", false));
         items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
         items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_database, 0, "Test database", false));
-        if (testerLevel >= Tdlib.TESTER_LEVEL_ADMIN) {
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (TDLib error)", false));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (disk full)", false).setStringValue("database or disk is full"));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (database broken)", false).setStringValue("Wrong key or database is corrupted"));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (other external error)", false).setStringValue("I/O error"));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash1, 0, "Crash app (method 1, indirect)", false));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash2, 0, "Crash app (method 2, direct)", false));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash3, 0, "Crash app (method 3, native indirect)", false));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash4, 0, "Crash app (method 4, native direct)", false));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crashDirect, 0, "Crash app (default)", false));
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crashDirectNative, 0, "Crash app (native)", false));
-        }
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (TDLib error)", false));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (disk full)", false).setStringValue("database or disk is full"));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (database broken)", false).setStringValue("Wrong key or database is corrupted"));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_recovery_tdlib, 0, "Crash & enter recovery mode (other external error)", false).setStringValue("I/O error"));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash1, 0, "Crash app (method 1, indirect)", false));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash2, 0, "Crash app (method 2, direct)", false));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash3, 0, "Crash app (method 3, native indirect)", false));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crash4, 0, "Crash app (method 4, native direct)", false));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crashDirect, 0, "Crash app (default)", false));
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_test_crashDirectNative, 0, "Crash app (native)", false));
         items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
         break;
       }
@@ -767,10 +735,8 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
         items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_tdlib_viewLogsOld, 0, TdlibManager.getLogFile(true).getName(), false));
         Settings.TdlibLogSettings settings = Settings.instance().getLogSettings();
-        if (testerLevel >= Tdlib.TESTER_LEVEL_DEVELOPER || settings.needAndroidLog()) {
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_tdlib_androidLogs, 0, R.string.DebugLogcatOnly, false));
-        }
+        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_tdlib_androidLogs, 0, R.string.DebugLogcatOnly, false));
         items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
         items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_tdlib_resetLogSettings, 0, R.string.DebugReset, false));
 
@@ -1118,11 +1084,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         if (i != -1) {
           boolean newValue = !Settings.instance().dontReadMessages();
           Settings.instance().setDontReadMessages(newValue);
-          if (newValue != Settings.instance().dontReadMessages()) {
-            UI.showToast("You can't enable that", Toast.LENGTH_SHORT);
-          } else {
-            adapter.updateValuedSettingById(R.id.btn_secret_dontReadMessages);
-          }
+          adapter.updateValuedSettingById(R.id.btn_secret_dontReadMessages);
         }
         break;
       }

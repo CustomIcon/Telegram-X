@@ -58,7 +58,6 @@ import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.component.MediaCollectorDelegate;
 import org.thunderdog.challegram.component.base.SettingView;
-import org.thunderdog.challegram.component.user.SortedUsersAdapter;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
@@ -2339,6 +2338,10 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     return new ListItem(ListItem.TYPE_INFO_SETTING, R.id.btn_phone, R.drawable.baseline_phone_24, R.string.PhoneMobile);
   }
 
+  private ListItem newUserId () {
+    return new ListItem(ListItem.TYPE_INFO_SETTING, R.id.btn_description, R.drawable.baseline_info_24, R.string.UserId);
+  }
+
   private ListItem newDescriptionItem () {
     return new ListItem(ListItem.TYPE_INFO_MULTILINE, R.id.btn_description, R.drawable.baseline_info_24, isUserMode() && !TD.isBot(user) ? R.string.UserBio : R.string.Description);
   }
@@ -2351,7 +2354,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     return user.isContact || user.isMutualContact || TD.hasPhoneNumber(user);
   }
 
-  private void buildUserCells () {
+  @SuppressLint("UnsafeOptInUsageError") private void buildUserCells () {
     ArrayList<ListItem> items = new ArrayList<>(15);
 
     items.add(new ListItem(ListItem.TYPE_EMPTY_OFFSET));
@@ -2634,6 +2637,11 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     return null;
   }
 
+  private String getUserId () {
+    String u = user.id+"";
+    return u;
+  }
+
   private boolean hasDescription () {
     return !StringUtils.isEmpty(getDescriptionValue());
   }
@@ -2690,7 +2698,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     long chatId = getChatId();
     if (chatId == Tdlib.TRENDING_STICKERS_CHAT_ID && Config.EXPLICIT_DICE_AVAILABLE) {
       int index = baseAdapter.indexOfViewById(R.id.btn_useExplicitDice);
-      boolean hasEasterEgg = isMember() && testerLevel >= Tdlib.TESTER_LEVEL_READER;
+      boolean hasEasterEgg = true;
       boolean hadEasterEgg = index != -1;
       if (hadEasterEgg != hasEasterEgg) {
         if (hadEasterEgg) {

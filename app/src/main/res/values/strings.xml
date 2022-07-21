@@ -1539,6 +1539,7 @@
   <string name="SendSticker">Send sticker</string>
   <string name="ViewPackPreview">View Pack</string>
   <string name="UserBio">Bio</string>
+  <string name="UserId">UserID</string>
   <string name="BioDescription">Any details such as age, occupation or city.\nExample: 23 y.o. designer from San Francisco.</string>
   <string name="AttachPhotoExpired">Photo has expired</string>
   <string name="AttachVideoExpired">Video has expired</string>

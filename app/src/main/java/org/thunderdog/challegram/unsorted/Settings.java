@@ -2551,10 +2551,10 @@ public class Settings {
   }
 
   public void setDontReadMessages (boolean dontReadMessages) {
-    if (dontReadMessages) {
-      if (!BuildConfig.DEBUG || !Log.isEnabled(Log.TAG_MESSAGES_LOADER))
-        dontReadMessages = false;
-    }
+    // if (dontReadMessages) {
+    //   if (!BuildConfig.DEBUG || !Log.isEnabled(Log.TAG_MESSAGES_LOADER))
+    //     dontReadMessages = false;
+    // }
     setSetting(FLAG_OTHER_DONT_READ_MESSAGES, dontReadMessages);
   }
 

@@ -28,7 +28,7 @@ import org.thunderdog.challegram.tool.UI;
 public class Config {
   public static final boolean SUPPORT_SYSTEM_UNDERLINE_SPAN = true;
 
-  public static final boolean COMMENTS_SUPPORTED = false;
+  public static final boolean COMMENTS_SUPPORTED = true;
 
   public static final boolean NEED_SILENT_BROADCAST = false;
 
@@ -185,7 +185,7 @@ public class Config {
   public static final boolean USE_CLOUD_PLAYER = USE_NEW_PLAYER && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN;
   public static final float DEFAULT_ICON_SWITCH_SCALE = .4f;
   public static final boolean CUTOUT_ENABLED = true; // Build.VERSION.SDK_INT < Build.VERSION_CODES.O;
-  public static final boolean EXPLICIT_DICE_AVAILABLE = false;
+  public static final boolean EXPLICIT_DICE_AVAILABLE = true;
 
   public static boolean useCloudPlayback (TdApi.Message playPauseFile) {
     if (USE_CLOUD_PLAYER && playPauseFile != null) {
