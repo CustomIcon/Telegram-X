@@ -60,6 +60,7 @@ import org.thunderdog.challegram.mediaview.paint.ColorPaletteView;
 import org.thunderdog.challegram.mediaview.paint.widget.ColorToneView;
 import org.thunderdog.challegram.navigation.DrawerItemView;
 import org.thunderdog.challegram.navigation.ViewController;
+import org.thunderdog.challegram.reactions.UserReactionView;
 import org.thunderdog.challegram.telegram.TGLegacyManager;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccount;
@@ -391,6 +392,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
 
   protected void setUser (ListItem item, int position, UserView userView, boolean isUpdate) {
     // Override
+  }
+
+  protected void setUserAndReaction (ListItem item, int position, UserReactionView userView, boolean isUpdate) {
+
   }
 
   protected void setEmbedSticker (ListItem item, int position, EmbeddableStickerView userView, boolean isUpdate) {
@@ -1287,7 +1292,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
   }
 
   @Override
-  public void onFactorChangeFinished (int id, float finalFactor, FactorAnimator callee) { }
+  public void onFactorChangeFinished (int id, float finalFactor, FactorAnimator callee) {}
 
   // adapter stuff
 
@@ -1470,10 +1475,14 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
         setUser(item, position, (UserView) holder.itemView, false);
         break;
       }
+      case ListItem.TYPE_USER_REACTION: {
+        setUserAndReaction(item, position, (UserReactionView) holder.itemView, false);
+        break;
+      }
       case ListItem.TYPE_JOIN_REQUEST: {
         DoubleTextViewWithIcon viewGroup = (DoubleTextViewWithIcon) holder.itemView;
         viewGroup.checkRtl();
-        setJoinRequest(item, position, viewGroup,false);
+        setJoinRequest(item, position, viewGroup, false);
         break;
       }
       case ListItem.TYPE_EMBED_STICKER: {
@@ -1826,7 +1835,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
     }
   }
 
-  protected void setRecyclerViewData(ListItem item, RecyclerView recyclerView, boolean isInitialization) {
+  protected void setRecyclerViewData (ListItem item, RecyclerView recyclerView, boolean isInitialization) {
     // Override in children
   }
 
@@ -2006,7 +2015,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
 
   public static final int SETTINGS_RESULT_UNKNOWN = -1;
   public static final int SETTINGS_RESULT_INTS = 0;
-  public static final int SETTINGS_RESULT_STRING  = 1;
+  public static final int SETTINGS_RESULT_STRING = 1;
 
   public int getCheckResultType () {
     return checkIntResults != null ? SETTINGS_RESULT_INTS : checkStringResults != null ? SETTINGS_RESULT_STRING : SETTINGS_RESULT_UNKNOWN;

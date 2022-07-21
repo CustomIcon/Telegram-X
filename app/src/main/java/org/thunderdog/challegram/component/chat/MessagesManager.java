@@ -44,6 +44,7 @@ import org.thunderdog.challegram.mediaview.data.MediaItem;
 import org.thunderdog.challegram.mediaview.data.MediaStack;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.player.TGPlayerController;
+import org.thunderdog.challegram.reactions.ReactionAnimationOverlay;
 import org.thunderdog.challegram.telegram.ListManager;
 import org.thunderdog.challegram.telegram.MessageEditListener;
 import org.thunderdog.challegram.telegram.MessageListener;
@@ -101,6 +102,8 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
 
   private boolean isScrolling;
 
+  private ReactionAnimationOverlay animationOverlay;
+
   public MessagesManager (final MessagesController controller) {
     this.controller = controller;
     controller.context().addPasscodeListener(this);
@@ -135,13 +138,14 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
           saveScrollPosition();
           ((MessagesRecyclerView) recyclerView).showDateForcely();
         }
-        if (dy != 0  && !hasScrolled && loader.getChatId() != 0) {
+        if (dy != 0 && !hasScrolled && loader.getChatId() != 0) {
           hasScrolled = true;
           controller.onInteractedWithContent();
           controller.onFirstChatScroll();
         }
       }
     };
+    animationOverlay = new ReactionAnimationOverlay(controller);
   }
 
   public int getKnownTotalMessageCount () {
@@ -248,6 +252,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   private long lastCheckedTopId;
   private long lastCheckedBottomId;
   private long lastViewedMention;
+  private long lastViewedReaction;
   private int lastCheckedCount;
 
   private void viewDisplayedMessages (int first, int last) {
@@ -296,6 +301,9 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
           long id = msg.getBiggestId();
           if (msg.containsUnreadMention() && id > lastViewedMention) {
             lastViewedMention = id;
+          }
+          if (msg.containsUnreadReactions() && id > lastViewedReaction) {
+            lastViewedReaction = id;
           }
           if (list == null) {
             list = new LongSet(last - first);
@@ -1221,6 +1229,16 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     return null;
   }
 
+  public MessageView findRealMessageView (long chatId, long messageId) {
+    View v = findMessageView(chatId, messageId);
+    if (v instanceof MessageView)
+      return (MessageView) v;
+    else if (v instanceof MessageViewGroup)
+      return ((MessageViewGroup) v).getMessageView();
+    else
+      return null;
+  }
+
   // View utils
 
   private View findTopView () {
@@ -1586,6 +1604,26 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     }
   }
 
+  public void updateMessageReactionRead (long messageId, TdApi.UnreadReaction[] reactions) {
+    if ((reactions == null || reactions.length == 0) && closestReactions != null && !closestReactions.isEmpty()) {
+      int i = 0;
+      for (TdApi.Message message : closestReactions) {
+        if (message.id == messageId) {
+          closestReactions.remove(i);
+          break;
+        }
+        i++;
+      }
+    }
+    int index = adapter.indexOfMessageContainer(messageId);
+    if (index != -1) {
+      final TGMessage msg = adapter.getItem(index);
+      msg.updateUnreadReactions(messageId, reactions);
+      viewMessageInternal(loader.getChatId(), loader.getMessageThreadId(), messageId);
+      Arrays.stream(reactions).map(r -> r.reaction).distinct().forEach(r -> controller.playReactionEffectAnimation(msg, r));
+    }
+  }
+
   public void updateMessageInteractionInfo (long messageId, @Nullable TdApi.MessageInteractionInfo interactionInfo) {
     int index = adapter.indexOfMessageContainer(messageId);
     if (index != -1 && adapter.getItem(index).setMessageInteractionInfo(messageId, interactionInfo)) {
@@ -1609,7 +1647,8 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     boolean unselectedSomeMessages = false;
 
     int i = 0;
-    main: while (i < adapter.getMessageCount()) {
+    main:
+    while (i < adapter.getMessageCount()) {
       TGMessage item = adapter.getMessage(i);
 
       for (long messageId : messageIds) {
@@ -2053,8 +2092,8 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
 
   // Highlight message id
 
-  public static final int HIGHLIGHT_MODE_START  = -1;
-  public static final int HIGHLIGHT_MODE_NONE   = 0;
+  public static final int HIGHLIGHT_MODE_START = -1;
+  public static final int HIGHLIGHT_MODE_NONE = 0;
   public static final int HIGHLIGHT_MODE_NORMAL = 1;
   public static final int HIGHLIGHT_MODE_UNREAD = 2;
   public static final int HIGHLIGHT_MODE_POSITION_RESTORE = 3;
@@ -2063,6 +2102,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
 
   private MessageId highlightMessageId;
   private int highlightMode;
+
   public void setHighlightMessageId (MessageId messageId, int highlightMode) {
     this.highlightMessageId = messageId;
     this.highlightMode = highlightMode;
@@ -2132,7 +2172,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       return;
     }
     final long fromMessageId;
-    if (lastViewedMention != 0)  {
+    if (lastViewedMention != 0) {
       fromMessageId = lastViewedMention;
     } else {
       TGMessage message = adapter.getTopMessage();
@@ -2180,6 +2220,72 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     this.closestMentions = mentions;
     if (!mentions.isEmpty()) {
       scrollToNextMention();
+    }
+  }
+
+  // Reactions
+
+  private ArrayList<TdApi.Message> closestReactions;
+  private CancellableResultHandler reactionsHandler;
+
+  public void scrollToNextReaction () {
+    if (closestReactions != null && !closestReactions.isEmpty()) {
+      TdApi.Message message = closestReactions.remove(0);
+      highlightMessage(new MessageId(message.chatId, message.id), HIGHLIGHT_MODE_NORMAL, null, true);
+      return;
+    }
+    if (reactionsHandler != null) {
+      return;
+    }
+    final long fromMessageId;
+    if (lastViewedReaction != 0) {
+      fromMessageId = lastViewedReaction;
+    } else {
+      TGMessage message = adapter.getTopMessage();
+      if (message == null) {
+        return;
+      }
+      fromMessageId = message.getBiggestId();
+    }
+    final long chatId = loader.getChatId();
+    final long messageThreadId = loader.getMessageThreadId();
+    final boolean[] isRetry = new boolean[1];
+    reactionsHandler = new CancellableResultHandler() {
+      @Override
+      public void processResult (final TdApi.Object object) {
+        if (object.getConstructor() == TdApi.Messages.CONSTRUCTOR) {
+          TdApi.Messages messages = (TdApi.Messages) object;
+          if (messages.totalCount > 0 && messages.messages.length == 0 && !isRetry[0]) {
+            isRetry[0] = true;
+            tdlib.client().send(new TdApi.SearchChatMessages(chatId, null, null, 0, 0, 10, new TdApi.SearchMessagesFilterUnreadReaction(), messageThreadId), this);
+          } else {
+            setReactions(this, messages, isRetry[0] ? 0 : fromMessageId);
+          }
+        } else {
+          setReactions(this, null, fromMessageId);
+        }
+      }
+    };
+    tdlib.client().send(new TdApi.SearchChatMessages(chatId, null, null, fromMessageId, -9, 10, new TdApi.SearchMessagesFilterUnreadReaction(), messageThreadId), reactionsHandler);
+  }
+
+  private void setReactions (final CancellableResultHandler handler, final TdApi.Messages messages, final long fromMessageId) {
+    tdlib.ui().post(() -> {
+      if (handler == reactionsHandler) {
+        reactionsHandler = null;
+        if (messages != null && messages.messages.length > 0) {
+          setReactionsImpl(messages.messages, fromMessageId);
+        }
+      }
+    });
+  }
+
+  private void setReactionsImpl (final TdApi.Message[] messages, final long fromMessageId) {
+    ArrayList<TdApi.Message> mentions = new ArrayList<>(messages.length);
+    Collections.addAll(mentions, messages);
+    this.closestReactions = mentions;
+    if (!mentions.isEmpty()) {
+      scrollToNextReaction();
     }
   }
 
@@ -2379,7 +2485,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
 
   public long[] extendReturnToMessageIdStack (MessageId addMessageId) {
     if (!hasReturnMessage() || !highlightMessageId.compareTo(addMessageId)) {
-      return new long[] {addMessageId.getMessageId()};
+      return new long[]{addMessageId.getMessageId()};
     }
     return ArrayUtils.addElement(returnToMessageIds, addMessageId.getMessageId());
   }
@@ -2484,9 +2590,9 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       return threadInfo.hasUnreadMessages();
     }
     return chat.unreadCount >= CHATS_THRESHOLD &&
-            chat.lastReadInboxMessageId != 0 && chat.lastReadInboxMessageId != MessageId.MAX_VALID_ID &&
-            chat.lastMessage != null && chat.lastMessage.id > chat.lastReadInboxMessageId &&
-            !chat.lastMessage.isOutgoing;
+      chat.lastReadInboxMessageId != 0 && chat.lastReadInboxMessageId != MessageId.MAX_VALID_ID &&
+      chat.lastMessage != null && chat.lastMessage.id > chat.lastReadInboxMessageId &&
+      !chat.lastMessage.isOutgoing;
   }
 
   public static int getAnchorHighlightMode (int accountId, TdApi.Chat chat, @Nullable ThreadInfo threadInfo) {
@@ -2752,6 +2858,21 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   }
 
   @Override
+  public void onMessageUnreadReactionsChanged (long chatId, long messageId, @Nullable TdApi.UnreadReaction[] unreadReactions, int unreadReactionCount) {
+    controller.onChatUnreadReactionCount(chatId, unreadReactionCount, false);
+    int sentMessageIndex = indexOfSentMessage(chatId, messageId);
+    if (sentMessageIndex != -1) {
+      sentMessages.get(sentMessageIndex).unreadReactions = unreadReactions;
+      return;
+    }
+    tdlib.ui().post(() -> {
+      if (loader.getChatId() == chatId) {
+        updateMessageReactionRead(messageId, unreadReactions);
+      }
+    });
+  }
+
+  @Override
   public void onMessagesDeleted (final long chatId, final long[] messageIds) {
     tdlib.ui().post(() -> {
       if (loader.getChatId() == chatId) {
@@ -2794,5 +2915,9 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
         color = ColorUtils.fromToArgb(color, Theme.getColor(bubbleNoWallpaperColorId), transparency);
       return color;
     }
+  }
+
+  public ReactionAnimationOverlay getAnimationOverlay () {
+    return animationOverlay;
   }
 }

@@ -121,7 +121,7 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
   private final MultipleViewProvider currentViews = new MultipleViewProvider();
 
   private final BounceAnimator scheduleAnimator;
-  private final Counter counter, mentionCounter, viewCounter;
+  private final Counter counter, mentionCounter, viewCounter, reactionCounter;
 
   public TGChat (ViewController<?> context, TdApi.ChatList chatList, TdApi.Chat chat, boolean makeMeasures) {
     this.context = context;
@@ -159,6 +159,10 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
       .drawable(R.drawable.baseline_at_16, 16f, 0f, Gravity.CENTER)
       .callback(this)
       .build();
+    this.reactionCounter = new Counter.Builder()
+      .drawable(R.drawable.baseline_favorite_14, 14f, 0f, Gravity.CENTER)
+      .callback(this)
+      .build();
     this.viewCounter = new Counter.Builder()
       .textSize(11f)
       .callback(this)
@@ -188,6 +192,10 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
     this.counter = new Counter.Builder().callback(this).build();
     this.mentionCounter = new Counter.Builder()
       .drawable(R.drawable.baseline_at_16, 16f, 0f, Gravity.CENTER)
+      .callback(this)
+      .build();
+    this.reactionCounter = new Counter.Builder()
+      .drawable(R.drawable.baseline_favorite_14, 14f, 0f, Gravity.CENTER)
       .callback(this)
       .build();
     this.viewCounter = null;
@@ -266,10 +274,10 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
   public void syncCounter () {
     if (chat != null && chat.lastMessage != null && isChannel() && showViews()) {
       long time = SystemClock.uptimeMillis();
-      if (viewedMessageId != chat.lastMessage.id || time - lastSyncTime > 60000 * 5 + (1f - MathUtils.clamp((float) TD.getViewCount(chat.lastMessage.interactionInfo) / 1000.0f)) * 1800000 ) {
+      if (viewedMessageId != chat.lastMessage.id || time - lastSyncTime > 60000 * 5 + (1f - MathUtils.clamp((float) TD.getViewCount(chat.lastMessage.interactionInfo) / 1000.0f)) * 1800000) {
         lastSyncTime = time;
         viewedMessageId = chat.lastMessage.id;
-        tdlib.client().send(new TdApi.ViewMessages(chat.id, 0, new long[] {viewedMessageId}, false), tdlib.okHandler());
+        tdlib.client().send(new TdApi.ViewMessages(chat.id, 0, new long[]{viewedMessageId}, false), tdlib.okHandler());
       }
     }
   }
@@ -584,6 +592,19 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
     return false;
   }
 
+  public boolean updateChatUnreadReactionCount (long chatId, int unreadReactionCount) {
+    if (chat.id == chatId) {
+      boolean hadBadge = chat.unreadReactionCount > 0;
+      chat.unreadReactionCount = unreadReactionCount;
+      boolean hasBadge = unreadReactionCount > 0;
+      if (hasBadge != hadBadge) {
+        setCounter(needAnimateChanges());
+        return true;
+      }
+    }
+    return false;
+  }
+
   public boolean updateChatHasScheduledMessages (long chatId, boolean hasScheduledMessages) {
     if (chat.id == chatId && chat.hasScheduledMessages != hasScheduledMessages) {
       chat.hasScheduledMessages = hasScheduledMessages;
@@ -764,7 +785,9 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
   private void setCounter (boolean allowAnimation) {
     boolean hasMentions = hasUnreadMentions();
     int unreadCount = getUnreadCount();
+    boolean hasReactions = hasUnreadReactions();
     mentionCounter.setCount(hasMentions ? Tdlib.CHAT_MARKED_AS_UNREAD : 0, false, allowAnimation && needAnimateChanges());
+    reactionCounter.setCount(hasReactions ? Tdlib.CHAT_MARKED_AS_UNREAD : 0, true, allowAnimation && needAnimateChanges());
     counter.setCount(hasMentions && unreadCount == 1 ? 0 : unreadCount, !notificationsEnabled(), allowAnimation && needAnimateChanges());
   }
 
@@ -792,6 +815,10 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
     } else {
       return chat.unreadMentionCount > 0;
     }
+  }
+
+  public boolean hasUnreadReactions () {
+    return isArchive() ? archive.hasUnreadReactions() : chat.unreadReactionCount > 0;
   }
 
   public boolean hasScheduledMessages () {
@@ -987,7 +1014,7 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
     return viewCounter;
   }
 
-  public int getMuteLeft() {
+  public int getMuteLeft () {
     return muteLeft;
   }
 
@@ -1002,7 +1029,8 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
   private int getCounterAddWidth () {
     return Math.round(
       counter.getScaledWidth(ChatView.getTimePaddingLeft()) +
-      mentionCounter.getScaledWidth(ChatView.getTimePaddingLeft())
+        mentionCounter.getScaledWidth(ChatView.getTimePaddingLeft()) +
+        reactionCounter.getScaledWidth(ChatView.getTimePaddingLeft())
     );
   }
 
@@ -1012,6 +1040,10 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
 
   public Counter getMentionCounter () {
     return mentionCounter;
+  }
+
+  public Counter getReactionCounter () {
+    return reactionCounter;
   }
 
   public BounceAnimator getScheduleAnimator () {
@@ -1125,7 +1157,8 @@ public class TGChat implements TdlibStatusManager.HelperTarget, TD.ContentPrevie
 
   private void setTextValue (String text, TextEntity[] entities, boolean isTranslatable) {
     this.text = text;
-    this.entities = entities != null && entities.length > 0 ? entities : null;;
+    this.entities = entities != null && entities.length > 0 ? entities : null;
+    ;
     this.flags = BitwiseUtils.setFlag(this.flags, FLAG_CONTENT_STRING, isTranslatable);
   }
 

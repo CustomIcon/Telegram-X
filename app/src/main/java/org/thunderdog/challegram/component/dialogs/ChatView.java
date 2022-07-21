@@ -456,7 +456,7 @@ public class ChatView extends BaseView implements TdlibSettingsManager.Preferenc
   }
 
   @Override
-  public void onPreferenceChanged(Tdlib tdlib, long key, boolean value) {
+  public void onPreferenceChanged (Tdlib tdlib, long key, boolean value) {
     if (chat != null && chat.isArchive() && key == TdlibSettingsManager.PREFERENCE_HIDE_ARCHIVE) {
       isPinnedArchive.setValue(!value, true);
     }
@@ -545,6 +545,10 @@ public class ChatView extends BaseView implements TdlibSettingsManager.Preferenc
     Counter mentionCounter = chat.getMentionCounter();
     mentionCounter.draw(c, counterRight - counterRadius, counterCenterY, Gravity.RIGHT, 1f, this, R.id.theme_color_badgeText);
     counterRight -= mentionCounter.getScaledWidth(getTimePaddingLeft());
+
+    Counter reactionCounter = chat.getReactionCounter();
+    reactionCounter.draw(c, counterRight - counterRadius, counterCenterY, Gravity.RIGHT, 1f, this, R.id.theme_color_badgeMutedText);
+    counterRight -= reactionCounter.getScaledWidth(getTimePaddingLeft());
 
     TdlibStatusManager.Helper status = chat.statusHelper();
     TdlibStatusManager.ChatState state = status != null ? status.drawingState() : null;

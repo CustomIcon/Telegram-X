@@ -15,6 +15,7 @@
 package org.thunderdog.challegram.component.chat;
 
 import android.graphics.Canvas;
+import android.graphics.Rect;
 
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
@@ -45,25 +46,28 @@ public class MessagesTouchHelperCallback extends CustomTouchHelper.Callback {
   @Override
   public int getMovementFlags (RecyclerView recyclerView, RecyclerView.ViewHolder holder) {
     if (controller == null ||
-        controller.inSelectMode() ||
-        controller.navigationController() == null ||
-        !MessagesHolder.isMessageType(holder.getItemViewType())) {
+      controller.inSelectMode() ||
+      controller.navigationController() == null ||
+      !MessagesHolder.isMessageType(holder.getItemViewType())) {
       return 0;
     }
     TGMessage m = MessagesHolder.findMessageView(holder.itemView).getMessage();
     if (!m.canSwipe() ||
-        m instanceof TGMessageChat ||
-        m instanceof TGMessageBotInfo ||
-        m.isSending() ||
-        m.getChatId() == 0) {
+      m instanceof TGMessageChat ||
+      m instanceof TGMessageBotInfo ||
+      m.isSending() ||
+      m.getChatId() == 0) {
       return 0;
     }
 
     int flags = 0;
 
-    if (canDragReply() && m.canReplyTo()) {
+    if ((canDragReply() && m.canReplyTo()) || canDragReact()) {
       int flag = Lang.rtl() ? ItemTouchHelper.RIGHT : ItemTouchHelper.LEFT;
       flags |= flag;
+      if (!controller.getQuickReactions().isEmpty()) {
+        flags |= ItemTouchHelper.UP | ItemTouchHelper.DOWN;
+      }
     }
 
     if (canDragShare() && m.canBeForwarded()) {
@@ -75,6 +79,10 @@ public class MessagesTouchHelperCallback extends CustomTouchHelper.Callback {
 
   public boolean canDragReply () {
     return Settings.instance().needChatQuickReply() && controller.canWriteMessages() && !controller.needTabs();
+  }
+
+  public boolean canDragReact () {
+    return !controller.getQuickReactions().isEmpty() && !controller.needTabs();
   }
 
   public boolean canDragShare () {
@@ -97,8 +105,22 @@ public class MessagesTouchHelperCallback extends CustomTouchHelper.Callback {
     if (msg.useBubbles()) {
       Runnable after = null;
       boolean needDelay = false;
-      if (direction == (Lang.rtl() ? CustomTouchHelper.RIGHT : CustomTouchHelper.LEFT) && canDragReply()) {
-        after = () -> controller.showReply(msg.getNewestMessage(), true, true);
+      if (direction == (Lang.rtl() ? CustomTouchHelper.RIGHT : CustomTouchHelper.LEFT) && (canDragReply() || canDragReact())) {
+        after = () -> {
+          int idx = msg.getQuickReactionIndex();
+          if (!canDragReply())
+            idx++;
+          if (idx == 0) {
+            controller.showReply(msg.getNewestMessage(), true, true);
+          } else {
+            int[] loc = {0, 0};
+            holder.itemView.getLocationOnScreen(loc);
+            int size = Screen.dp(20);
+            int x = holder.itemView.getWidth() - Screen.dp(32) + loc[0] - size / 2;
+            int y = (msg.getBottomContentEdge() - msg.getTopContentEdge()) / 2 + loc[1] - size / 2;
+            controller.sendMessageReaction(msg, controller.getQuickReactions().get(idx - 1).reaction, null, new Rect(x, y, x + size, y + size), null, false);
+          }
+        };
       }
       if (direction == (Lang.rtl() ? CustomTouchHelper.LEFT : CustomTouchHelper.RIGHT) && canDragShare()) {
         after = () -> controller.shareMessages(msg.getChatId(), msg.getAllMessages());
@@ -135,8 +157,20 @@ public class MessagesTouchHelperCallback extends CustomTouchHelper.Callback {
         ((MessageViewGroup) holder.itemView).setSwipeTranslation(0f);
       }
       if (swipeDir == (Lang.rtl() ? CustomTouchHelper.RIGHT : CustomTouchHelper.LEFT)) {
-        if (canDragReply()) {
-          controller.showReply(msg.getNewestMessage(), true, true);
+        if (canDragReply() || canDragReact()) {
+          int idx = msg.getQuickReactionIndex();
+          if (!canDragReply())
+            idx++;
+          if (idx == 0) {
+            controller.showReply(msg.getNewestMessage(), true, true);
+          } else {
+            int[] loc = {0, 0};
+            holder.itemView.getLocationOnScreen(loc);
+            int size = Screen.dp(20);
+            int x = holder.itemView.getWidth() - Screen.dp(32) + loc[0] - size / 2;
+            int y = (msg.getBottomContentEdge() - msg.getTopContentEdge()) / 2 + loc[1] - size / 2;
+            controller.sendMessageReaction(msg, controller.getQuickReactions().get(idx - 1).reaction, null, null, null, false);
+          }
         }
       } else {
         if (canDragShare()) {
@@ -146,15 +180,27 @@ public class MessagesTouchHelperCallback extends CustomTouchHelper.Callback {
     }
   }
 
+  private float lastActiveDY;
+
   @Override
   public void onChildDraw (Canvas c, RecyclerView recyclerView, RecyclerView.ViewHolder holder, float dx, float dy, int state, boolean isActive) {
     if (state == ItemTouchHelper.ACTION_STATE_SWIPE && MessagesHolder.isMessageType(holder.getItemViewType())) {
+      if ((Lang.rtl() && dx < 0) || (!Lang.rtl() && dx > 0)) {
+        dy = 0;
+      }
       final MessageView v = MessagesHolder.findMessageView(holder.itemView);
       final TGMessage msg = v.getMessage();
-      msg.translate(dx, true);
+      if (isActive)
+        lastActiveDY = dy;
+      msg.translate(dx, isActive ? dy : lastActiveDY, true);
       if (holder.itemView instanceof MessageViewGroup) {
         ((MessageViewGroup) holder.itemView).setSwipeTranslation(msg.getTranslation());
       }
     }
+  }
+
+  @Override
+  public int interpolateOutOfBoundsScroll (RecyclerView recyclerView, int viewSize, int viewSizeOutOfBounds, int totalSize, long msSinceStartScroll) {
+    return 0; // prevents scrolling when dragging vertically
   }
 }

@@ -15,7 +15,10 @@
 package org.thunderdog.challegram.component.chat;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -25,6 +28,7 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 
 import androidx.annotation.Nullable;
+import androidx.collection.SparseArrayCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.drinkless.td.libcore.telegram.TdApi;
@@ -47,6 +51,8 @@ import org.thunderdog.challegram.loader.gif.GifReceiver;
 import org.thunderdog.challegram.navigation.NavigationController;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.player.TGPlayerController;
+import org.thunderdog.challegram.reactions.MessageCellReactionButton;
+import org.thunderdog.challegram.reactions.ReactionButtonsLayout;
 import org.thunderdog.challegram.telegram.TdlibManager;
 import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.theme.Theme;
@@ -61,7 +67,7 @@ import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.util.DrawableProvider;
 import org.thunderdog.challegram.util.StringList;
 import org.thunderdog.challegram.v.MessagesRecyclerView;
-import org.thunderdog.challegram.widget.SparseDrawableView;
+import org.thunderdog.challegram.widget.SparseDrawableViewGroup;
 
 import java.util.List;
 
@@ -78,7 +84,7 @@ import me.vkryl.core.lambda.RunnableData;
 import me.vkryl.td.ChatId;
 import me.vkryl.td.Td;
 
-public class MessageView extends SparseDrawableView implements Destroyable, DrawableProvider, MessagesManager.MessageProvider {
+public class MessageView extends SparseDrawableViewGroup implements Destroyable, DrawableProvider, MessagesManager.MessageProvider, ReactionButtonsLayout.ReactionButtonClickListener {
   private static final int FLAG_USE_COMMON_RECEIVER = 1;
   private static final int FLAG_CAUGHT_CLICK = 1 << 1;
   private static final int FLAG_CAUGHT_MESSAGE_TOUCH = 1 << 2;
@@ -99,6 +105,10 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
   private ComplexReceiver complexReceiver;
   private MessageViewGroup parentMessageViewGroup;
   private MessagesManager manager;
+  private ComplexReceiver reactionSmallIconsReceiver;
+  private ReactionButtonsLayout reactionButtons;
+  private boolean isAttachedToWindow;
+  private ComplexReceiver quickReactionsReceiver;
 
   public MessageView (Context context) {
     super(context);
@@ -109,7 +119,47 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
     if (Config.HARDWARE_MESSAGE_LAYER) {
       Views.setLayerType(this, LAYER_TYPE_HARDWARE);
     }
+    setWillNotDraw(false);
+    reactionButtons = new ReactionButtonsLayout(context);
+    reactionButtons.setButtonClickListener(this);
+    addView(reactionButtons);
   }
+
+  @Override
+  protected void onLayout (boolean changed, int l, int t, int r, int b) {
+    if (reactionButtons.getVisibility() != GONE) {
+      int bottom;
+      if (!manager.useBubbles() || (msg.drawBubbleTimeOverContent() && !msg.useForward()))
+        bottom = b - t;
+      else
+        bottom = msg.getBottomContentEdge();
+
+      if (manager.useBubbles()) {
+        if (msg.drawBubbleTimeOverContent() && !msg.useForward()) {
+          int width = Math.max(reactionButtons.getMeasuredWidth(), msg.getActualRightContentEdge() - msg.getActualLeftContentEdge());
+          if (msg.isOutgoing()) {
+            reactionButtons.layout(msg.getActualRightContentEdge() - width, bottom - reactionButtons.getMeasuredHeight(), msg.getActualRightContentEdge(), bottom);
+          } else {
+            reactionButtons.layout(msg.getActualLeftContentEdge(), bottom - reactionButtons.getMeasuredHeight(), msg.getActualLeftContentEdge() + width, bottom);
+          }
+        } else {
+          reactionButtons.layout(msg.getActualLeftContentEdge(), bottom - reactionButtons.getMeasuredHeight(), msg.getActualRightContentEdge(), bottom);
+        }
+      } else {
+        bottom -= msg.getExtraPadding();
+        reactionButtons.layout(Screen.dp(50), bottom - reactionButtons.getMeasuredHeight(), r - l, bottom);
+      }
+    }
+  }
+
+  // Sparse drawable function
+  private SparseArrayCompat<Drawable> sparseDrawables;
+
+  @Override
+  public final SparseArrayCompat<Drawable> getSparseDrawableHolder () {return (sparseDrawables != null ? sparseDrawables : (sparseDrawables = new SparseArrayCompat<>()));}
+
+  @Override
+  public final Resources getSparseDrawableResources () {return getResources();}
 
   public void setManager (MessagesManager manager) {
     this.manager = manager;
@@ -133,7 +183,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
   }
 
   public void destroy () {
-    if (avatarReceiver != null){
+    if (avatarReceiver != null) {
       avatarReceiver.destroy();
     }
     if (contentReceiver != null) {
@@ -150,6 +200,12 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
     }
     if (complexReceiver != null) {
       complexReceiver.performDestroy();
+    }
+    if (reactionSmallIconsReceiver != null) {
+      reactionSmallIconsReceiver.performDestroy();
+    }
+    if (quickReactionsReceiver != null) {
+      quickReactionsReceiver.performDestroy();
     }
     if (msg != null) {
       msg.onDestroy();
@@ -234,6 +290,8 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
     message.resetTransformState();
     message.requestAvatar(avatarReceiver);
 
+    updateReactions();
+
     if ((flags & FLAG_USE_COMMON_RECEIVER) != 0) {
       previewReceiver.setRadius(message.getImageContentRadius(true));
       message.requestPreview(previewReceiver);
@@ -297,11 +355,64 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
     } else {
       int width = ((View) getParent()).getMeasuredWidth();
       if (msg != null) {
+        buildMessageLayoutAndMeasureReactionButtons(width);
+      }
+    }
+    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), getCurrentHeight());
+    checkLegacyComponents(this);
+  }
+
+  public void buildMessageLayoutAndMeasureReactionButtons (int width) {
+    if (reactionButtons.getVisibility() != GONE) {
+      if (manager.useBubbles()) {
+        msg.setReactionButtonsSize(0, 0); // reset
+        msg.buildLayout(width);
+        int maxW = msg.getActualRightContentEdge() - msg.getActualLeftContentEdge();
+        if (msg.canExpandBubbleWidthForReactions() && maxW < msg.getRealContentMaxWidth())
+          reactionButtons.measure(msg.getRealContentMaxWidth() | MeasureSpec.AT_MOST, MeasureSpec.UNSPECIFIED);
+        else if (msg.drawBubbleTimeOverContent() && !msg.useForward())
+          reactionButtons.measure(msg.getRealContentMaxWidth() | MeasureSpec.AT_MOST, MeasureSpec.UNSPECIFIED);
+        else
+          reactionButtons.measure(maxW | MeasureSpec.EXACTLY, MeasureSpec.UNSPECIFIED);
+        msg.setReactionButtonsSize(reactionButtons.getMeasuredWidth(), reactionButtons.getMeasuredHeight());
+        msg.buildLayout(width); // maybe there's a better way of doing it than building layout twice?
+      } else {
+        reactionButtons.measure((width - Screen.dp(50)) | MeasureSpec.EXACTLY, MeasureSpec.UNSPECIFIED);
+        msg.setReactionButtonsSize(reactionButtons.getMeasuredWidth(), reactionButtons.getMeasuredHeight());
         msg.buildLayout(width);
       }
-      setMeasuredDimension(widthMeasureSpec, MeasureSpec.makeMeasureSpec(getCurrentHeight(), MeasureSpec.EXACTLY));
+    } else {
+      msg.setReactionButtonsSize(0, 0);
+      msg.buildLayout(width);
     }
-    checkLegacyComponents(this);
+  }
+
+  public int getReactionButtonsHeight () {
+    if (reactionButtons != null && reactionButtons.getVisibility() != GONE)
+      return reactionButtons.getMeasuredHeight();
+    else
+      return 0;
+  }
+
+  public MessageCellReactionButton getReactionButton (String reaction) {
+    if (reactionButtons == null)
+      return null;
+    return reactionButtons.getReactionButton(reaction);
+  }
+
+  public void updateReactions () {
+    if (msg.hasReactions() && !msg.needDrawReactionsWithTime()) {
+      reactionButtons.setVisibility(VISIBLE);
+      reactionButtons.setMessage(msg);
+      reactionButtons.setBottomRightIndentWidth(manager.useBubbles() ? msg.getBubbleTimePartWidth() : 0);
+      if (manager.useBubbles() && msg.drawBubbleTimeOverContent() && !msg.useForward()) {
+        reactionButtons.setPadding(0, Screen.dp(6), 0, Screen.dp(10));
+      } else {
+        reactionButtons.setPadding(Screen.dp(10), 0, Screen.dp(10), Screen.dp(10));
+      }
+    } else {
+      reactionButtons.setVisibility(GONE);
+    }
   }
 
   public final @Nullable MessagesRecyclerView findParentRecyclerView () {
@@ -330,7 +441,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
 
   @Override
   public void onDraw (Canvas c) {
-    msg.draw(this, c, avatarReceiver, replyReceiver, previewReceiver, contentReceiver, gifReceiver, complexReceiver);
+    msg.draw(this, c, avatarReceiver, replyReceiver, previewReceiver, contentReceiver, gifReceiver, complexReceiver, reactionSmallIconsReceiver);
   }
 
   public ImageReceiver getAvatarReceiver () {
@@ -339,6 +450,12 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
 
   public ImageReceiver getContentReceiver () {
     return contentReceiver;
+  }
+
+  public ComplexReceiver getReactionSmallIconsReceiver () {
+    if (reactionSmallIconsReceiver == null)
+      reactionSmallIconsReceiver = new ComplexReceiver(this);
+    return reactionSmallIconsReceiver;
   }
 
   public Receiver getAnyReceiver () {
@@ -374,6 +491,9 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
       if ((flags & FLAG_USE_COMPLEX_RECEIVER) != 0) {
         complexReceiver.attach();
       }
+      if (reactionSmallIconsReceiver != null) {
+        reactionSmallIconsReceiver.attach();
+      }
     }
   }
 
@@ -391,6 +511,9 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
       }
       if ((flags & FLAG_USE_COMPLEX_RECEIVER) != 0) {
         complexReceiver.detach();
+      }
+      if (reactionSmallIconsReceiver != null) {
+        reactionSmallIconsReceiver.detach();
       }
     }
   }
@@ -469,7 +592,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
       if (isSent) {
         return showChatOptions(m, (TGMessageChat) msg, sender);
       } else {
-        m.showMessageOptions(msg, new int[] {R.id.btn_messageDelete}, new String[] {Lang.getString(R.string.Delete)}, new int[] {R.drawable.baseline_delete_24}, null, sender, true);
+        m.showMessageOptions(msg, new int[]{R.id.btn_messageDelete}, new String[]{Lang.getString(R.string.Delete)}, new int[]{R.drawable.baseline_delete_24}, null, sender, true);
         return true;
       }
     }
@@ -1310,24 +1433,25 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
       return false;
     }
     MessagesController m = msg.messagesController();
-    if (diffX < 0f && !m.canWriteMessages()) {
-      return false;
-    }
     MessagesRecyclerView recyclerView = findParentRecyclerView();
     if (recyclerView == null) {
       return false;
     }
     MessagesTouchHelperCallback helperCallback = recyclerView.getMessagesTouchHelper();
     if (Lang.rtl()) {
-      if ((helperCallback.canDragReply() && diffX > 0) || (helperCallback.canDragShare() && diffX < 0)) {
+      if (((helperCallback.canDragReply() || helperCallback.canDragReact()) && diffX > 0) || (helperCallback.canDragShare() && diffX < 0)) {
         if (touchX < m.get().getMeasuredWidth() - MessagesController.getSlideBackBound()) {
+          loadQuickReactionIcons();
+          msg.startSwipe();
           m.startSwipe(findTargetView());
           return true;
         }
       }
     } else {
-      if ((helperCallback.canDragReply() && diffX < 0) || (helperCallback.canDragShare() && diffX > 0)) {
+      if (((helperCallback.canDragReply() || helperCallback.canDragReact()) && diffX < 0) || (helperCallback.canDragShare() && diffX > 0)) {
         if (touchX > MessagesController.getSlideBackBound()) {
+          loadQuickReactionIcons();
+          msg.startSwipe();
           m.startSwipe(findTargetView());
           return true;
         }
@@ -1449,5 +1573,105 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
       }
     }
     return false;
+  }
+
+  public void setReactionButtonsTranslation (float translationX) {
+    reactionButtons.setTranslationX(translationX);
+  }
+
+  @Override
+  protected void onAttachedToWindow () {
+    super.onAttachedToWindow();
+    isAttachedToWindow = true;
+  }
+
+  @Override
+  protected void onDetachedFromWindow () {
+    super.onDetachedFromWindow();
+    isAttachedToWindow = false;
+  }
+
+  @Override
+  public void onReactionClick (MessageCellReactionButton btn) {
+    manager.controller().sendMessageReaction(msg, btn.getReaction().reaction, null, null, null, false);
+  }
+
+  @Override
+  public boolean onReactionLongClick (MessageCellReactionButton btn) {
+    if (msg.canGetAddedReactions()) {
+      manager.controller().showMessageReactions(msg, btn.getReaction().reaction);
+      return true;
+    }
+    return false;
+  }
+
+  private int[] tmpViewLocation = {0, 0};
+
+  public boolean getReactionIconBounds (String reaction, Rect outRect) {
+    if (!isAttachedToWindow || !isAttached)
+      return false;
+    if (msg.needDrawReactionsWithTime()) {
+      int i = 0;
+      for (TdApi.MessageReaction r : msg.getReactions()) {
+        if (r.reaction.equals(reaction)) {
+          ImageReceiver receiver = reactionSmallIconsReceiver.getImageReceiver(i);
+          getLocationOnScreen(tmpViewLocation);
+          int x = msg.getCompactReactionsX() + Screen.dp(16) * i + Screen.dp(8) - receiver.getWidth() / 2 + tmpViewLocation[0] - (msg.useBubbles() ? Screen.dp(2) : 0);
+          int y = msg.getCompactReactionsY() + tmpViewLocation[1] - receiver.getHeight() / 2;
+          outRect.set(x, y, x + receiver.getWidth(), y + receiver.getHeight());
+          return true;
+        }
+        i++;
+        if (i == 3)
+          break;
+      }
+      return false;
+    } else {
+      MessageCellReactionButton btn = reactionButtons.getReactionButton(reaction);
+      if (btn == null)
+        return false;
+      View icon = btn.getIcon();
+      icon.getLocationOnScreen(tmpViewLocation);
+      outRect.set(tmpViewLocation[0], tmpViewLocation[1], tmpViewLocation[0] + icon.getWidth(), tmpViewLocation[1] + icon.getHeight());
+      return true;
+    }
+  }
+
+  public void setReactionIconHidden (String reaction, boolean hidden) {
+    if (msg.needDrawReactionsWithTime()) {
+      int i = 0;
+      for (TdApi.MessageReaction r : msg.getReactions()) {
+        if (r.reaction.equals(reaction)) {
+          ImageReceiver receiver = reactionSmallIconsReceiver.getImageReceiver(i);
+          receiver.setAlpha(hidden ? 0f : 1f);
+          postInvalidate();
+          return;
+        }
+        i++;
+        if (i == 3)
+          return;
+      }
+    } else {
+      MessageCellReactionButton btn = reactionButtons.getReactionButton(reaction);
+      if (btn != null) {
+        btn.getIcon().setAlpha(hidden ? 0f : 1f);
+      }
+    }
+  }
+
+  public ComplexReceiver getQuickReactionsReceiver () {
+    if (quickReactionsReceiver == null)
+      quickReactionsReceiver = new ComplexReceiver(this);
+    return quickReactionsReceiver;
+  }
+
+  private void loadQuickReactionIcons () {
+    List<TdApi.Reaction> reactions = manager.controller().getQuickReactions();
+    if (reactions.isEmpty())
+      return;
+    ComplexReceiver receiver = getQuickReactionsReceiver();
+    for (int i = 0; i < reactions.size(); i++) {
+      receiver.getImageReceiver(i).requestFile(TD.toImageFile(msg.tdlib(), reactions.get(i).staticIcon.thumbnail));
+    }
   }
 }
