@@ -365,6 +365,7 @@ public class Settings {
   public static final long SETTING_FLAG_CAMERA_SHOW_GRID = 1 << 12;
 
   public static final long SETTING_FLAG_NO_EMBEDS = 1 << 13;
+  private static final int FLAG_OTHER_DONT_EXPIRE_MEDIA = 1 << 14;
 
   public static final int FLAG_BIG_REACTIONS_CHATS = 1;
   public static final int FLAG_BIG_REACTIONS_CHANNELS = 2;
@@ -2587,6 +2588,19 @@ public class Settings {
     // }
     setSetting(FLAG_OTHER_DONT_READ_MESSAGES, dontReadMessages);
   }
+
+  public boolean dontExpireMedia () {
+    return BuildConfig.DEBUG && checkSetting(FLAG_OTHER_DONT_EXPIRE_MEDIA);
+  }
+
+  public void setDontExpireMedia (boolean dontExpireMedia) {
+    // if (dontReadMessages) {
+    //   if (!BuildConfig.DEBUG || !Log.isEnabled(Log.TAG_MESSAGES_LOADER))
+    //     dontReadMessages = false;
+    // }
+    setSetting(FLAG_OTHER_DONT_EXPIRE_MEDIA, dontExpireMedia);
+  }
+
 
   public boolean needSendByEnter () {
     return checkSetting(FLAG_OTHER_SEND_BY_ENTER);

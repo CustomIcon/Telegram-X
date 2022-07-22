@@ -859,6 +859,7 @@
   <item type="id" name="btn_sessionLogout" />
 
   <item type="id" name="btn_secret_dontReadMessages" />
+  <item type="id" name="btn_secret_dontExpireMedia" />
   <item type="id" name="btn_secret_dropSavedScrollPositions" />
   <item type="id" name="btn_secret_batmanTransitions" />
   <item type="id" name="btn_secret_resetTutorials" />

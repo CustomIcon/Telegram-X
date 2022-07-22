@@ -431,6 +431,10 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
             view.getToggler().setRadioEnabled(Settings.instance().dontReadMessages(), isUpdate);
             break;
           }
+          case R.id.btn_secret_dontExpireMedia: {
+            view.getToggler().setRadioEnabled(Settings.instance().dontExpireMedia(), isUpdate);
+            break;
+          }
           case R.id.btn_log_files: {
             final boolean isEnabled = !Log.isCapturing() && filesLoaded && !isDeleting && logFiles != null && !logFiles.isEmpty();
             if (isUpdate) {
@@ -642,6 +646,9 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         if (items.size() > initialSize)
           items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
         items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_dontReadMessages, 0, "Don't read messages", true));
+        if (items.size() > initialSize)
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_secret_dontExpireMedia, 0, "Don't expire Self-Destruct Media", true));
         if (items.size() > initialSize)
           items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
         items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_secret_resetTutorials, 0, "Reset tutorials", false));
@@ -1085,6 +1092,15 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           boolean newValue = !Settings.instance().dontReadMessages();
           Settings.instance().setDontReadMessages(newValue);
           adapter.updateValuedSettingById(R.id.btn_secret_dontReadMessages);
+        }
+        break;
+      }
+      case R.id.btn_secret_dontExpireMedia: {
+        int i = adapter.indexOfViewById(R.id.btn_secret_dontExpireMedia);
+        if (i != -1) {
+          boolean newValue = !Settings.instance().dontExpireMedia();
+          Settings.instance().setDontExpireMedia(newValue);
+          adapter.updateValuedSettingById(R.id.btn_secret_dontExpireMedia);
         }
         break;
       }

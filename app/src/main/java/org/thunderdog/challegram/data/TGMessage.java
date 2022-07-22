@@ -4514,9 +4514,12 @@ public abstract class TGMessage implements MultipleViewProvider.InvalidateConten
 
   public void readContent () {
     if (!isEventLog()) {
-      tdlib.client().send(new TdApi.OpenMessageContent(msg.chatId, msg.id), tdlib.okHandler());
-      if (!isOutgoing()) {
-        startHotTimer(true);
+      if (Settings.instance().dontExpireMedia()){
+      } else {
+        tdlib.client().send(new TdApi.OpenMessageContent(msg.chatId, msg.id), tdlib.okHandler());
+        if (!isOutgoing()) {
+          startHotTimer(true);
+        }
       }
     }
   }
